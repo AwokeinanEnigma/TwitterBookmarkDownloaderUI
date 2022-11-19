@@ -2,14 +2,11 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
-using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace BirdBearDownloaderUI
@@ -194,6 +191,32 @@ namespace BirdBearDownloaderUI
 
         #endregion
         private bool downloading;
+
+        // taken from:
+        // https://stackoverflow.com/questions/4580397/json-formatter-in-c
+        // thanks yallie!
+        public static string FormatJson(string json, string indent = "  ")
+        {
+            var indentation = 0;
+            var quoteCount = 0;
+            var escapeCount = 0;
+
+            var result =
+                from ch in json ?? string.Empty
+                let escaped = (ch == '\\' ? escapeCount++ : escapeCount > 0 ? escapeCount-- : escapeCount) > 0
+                let quotes = ch == '"' && !escaped ? quoteCount++ : quoteCount
+                let unquoted = quotes % 2 == 0
+                let colon = ch == ':' && unquoted ? ": " : null
+                let nospace = char.IsWhiteSpace(ch) && unquoted ? string.Empty : null
+                let lineBreak = ch == ',' && unquoted ? ch + Environment.NewLine + string.Concat(Enumerable.Repeat(indent, indentation)) : null
+                let openChar = (ch == '{' || ch == '[') && unquoted ? ch + Environment.NewLine + string.Concat(Enumerable.Repeat(indent, ++indentation)) : ch.ToString()
+                let closeChar = (ch == '}' || ch == ']') && unquoted ? Environment.NewLine + string.Concat(Enumerable.Repeat(indent, --indentation)) + ch : ch.ToString()
+                select colon ?? nospace ?? lineBreak ?? (
+                    openChar.Length > 1 ? openChar : closeChar
+                );
+
+            return string.Concat(result);
+        }
         public void StartDownload()
         {
 
@@ -204,12 +227,21 @@ namespace BirdBearDownloaderUI
                     // Loretta!
 
                     // You might be asking - "Why not just read it as a json file?"
-                    // Here's why: I don't have the patience required to mess around with whatever weird ass JSOJ structure that-
-                    // BirdBear produces. Also I don't know enough about the json format in general, so bite me!
+                    // Here's why: I don't have the patience required to mess around with whatever weird ass JSON structure that BirdBear produces
+                    // Also I don't know enough about the json format in general, so bite me!
                     string text = File.ReadAllText(jsonFileName);
 
                     // split into lines
                     string[] lines = text.Split(new string[] { Environment.NewLine }, StringSplitOptions.None);
+                    Console.WriteLine(lines.Length);
+
+                    // unformatted json that's on a single line
+                    // yucky!
+                    if (lines.Length == 1) {
+                        Console.WriteLine(FormatJson(text, Environment.NewLine));
+                        lines = FormatJson(text, Environment.NewLine).Split(new string[] { Environment.NewLine }, StringSplitOptions.None);
+                        //Console.WriteLine(f);
+                    }
 
                     // go over each line
                     foreach (string line in lines)
@@ -231,7 +263,6 @@ namespace BirdBearDownloaderUI
                             }
                         }
                     }
-                    Console.WriteLine(lines.Length);
 
                     label4.Visible = true;
                     // webClient.DownloadFile(new Uri("https://video.twimg.com/ext_tw_video/1583163829189476352/pu/vid/320x568/qMZFf6wYLsZx8S8k.mp4?tag=12"), "D:\\thing.mp4");
@@ -280,6 +311,14 @@ namespace BirdBearDownloaderUI
             if (path != string.Empty) {
                 StartDownload();
             }
+        }
+
+        //restart
+        private void button4_Click(object sender, EventArgs e)
+        {
+            this.downloading = false;
+            label4.Visible = false;
+            blackListedVideoIDs.Clear();
         }
     }
 }
